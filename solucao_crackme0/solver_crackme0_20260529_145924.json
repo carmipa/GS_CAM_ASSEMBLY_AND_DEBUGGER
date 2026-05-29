@@ -1,0 +1,19 @@
+{
+    "metadata": {
+        "analyst": "Paulo André Carminati",
+        "rm": "RM570877",
+        "turma": "1TDCPV",
+        "timestamp_utc": "2026-05-29T14:59:17.617706+00:00",
+        "target_directory": "G:\\FIAP\\FIAP-2026\\COMPUTER_ARCHITETURE_MEMORY_ASSEMBLY_AND_DEBUGGERS_1SM_2026\\GS\\GS1-2026-1TDCPV-2026\\GS1-2025\\CrackMe0",
+        "target_file": "CrackMe0.dll",
+        "status": "SUCCESS"
+    },
+    "findings": {
+        "binary_size_bytes": 8192,
+        "binary_type": ".NET 6 WPF — PE32+ com CLR header (Common Language Runtime)",
+        "extraction_method": "Varredura de strings UTF-16LE na stream #US da metadata IL",
+        "il_stream_target": "#US (User Strings) — offset determinado via CLR Data Directory",
+        "extracted_user": "N/A (CrackMe0 valida apenas a flag)",
+        "extracted_flag": "FIAP{B3m_V1nd0_a0_R3v3rs1ng!}"
+    }
+}

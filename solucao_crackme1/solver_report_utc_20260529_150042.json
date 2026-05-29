@@ -1,0 +1,19 @@
+{
+    "metadata": {
+        "analyst": "Paulo André Carminati",
+        "rm": "RM570877",
+        "turma": "1TDCPV",
+        "timestamp_utc": "2026-05-29T15:00:35.497502+00:00",
+        "target_directory": "G:\\FIAP\\FIAP-2026\\COMPUTER_ARCHITETURE_MEMORY_ASSEMBLY_AND_DEBUGGERS_1SM_2026\\GS\\GS1-2026-1TDCPV-2026\\GS1-2025\\CrackMe1\\dist",
+        "target_file": "desafio",
+        "status": "SUCCESS"
+    },
+    "findings": {
+        "binary_size_bytes": 23864,
+        "elf_architecture": "ELF 64-bit LSB executable, x86-64",
+        "xor_key_method": "Rotação de 4 bytes: 'FIAP' (i % 4), extraída da seção .symtab",
+        "ref_array_offset": "rbp-0x40 (27 bytes, construído por 4 movabs sobrepostos na stack)",
+        "extracted_user": "FIAP",
+        "extracted_flag": "FIAP{5e9c3c9a6eb97d69319f7}"
+    }
+}

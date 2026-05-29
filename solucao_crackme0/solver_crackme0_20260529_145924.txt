@@ -1,0 +1,24 @@
+==================================================
+ RELATÓRIO DE ENGENHARIA REVERSA - AUTO SOLVER (CRACKME0)
+==================================================
+
+[+] Analista   : Paulo André Carminati
+[+] RM         : RM570877
+[+] Turma      : 1TDCPV
+[+] Data/Hora (UTC): 2026-05-29T14:59:17.617706+00:00
+[+] Diretório Alvo : G:\FIAP\FIAP-2026\COMPUTER_ARCHITETURE_MEMORY_ASSEMBLY_AND_DEBUGGERS_1SM_2026\GS\GS1-2026-1TDCPV-2026\GS1-2025\CrackMe0
+[+] Status         : SUCCESS
+
+--------------------------------------------------
+ TÉCNICA APLICADA
+--------------------------------------------------
+Tipo do Binário: .NET 6 WPF — PE32+ com CLR header (Common Language Runtime)
+Método         : Varredura de strings UTF-16LE na stream #US da metadata IL
+Stream IL      : #US (User Strings) — offset determinado via CLR Data Directory
+
+--------------------------------------------------
+ RESULTADOS EXTRAÍDOS
+--------------------------------------------------
+Usuário               : N/A (CrackMe0 valida apenas a flag)
+Chave de Autenticação : FIAP{B3m_V1nd0_a0_R3v3rs1ng!}
+==================================================
