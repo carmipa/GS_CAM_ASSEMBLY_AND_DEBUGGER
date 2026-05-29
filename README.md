@@ -25,6 +25,7 @@
 | 1 | [Sobre o Desafio](#1-sobre-o-desafio) | Contexto acadêmico e objetivos |
 | 2 | [Estrutura do Projeto](#2-estrutura-do-projeto) | Arquivos e organização |
 | 3 | [Arquitetura da Solução](#3-arquitetura-da-solução) | Diagrama geral do pipeline |
+| 3.1 | [Por que os Auto Solvers?](#31-por-que-os-auto-solvers-e-não-pedir-a-resposta-diretamente-à-ia) | Vantagem da arquitetura sobre pedido direto à IA |
 | 4 | [Desafio 1 — CrackMe0 (.NET)](#4-desafio-1--crackme0-net) | Análise do assembly gerenciado |
 | 5 | [Desafio 2 — CrackMe1 (ELF)](#5-desafio-2--crackme1-elf) | Análise do binário nativo Linux |
 | 6 | [Fluxo de Execução](#6-fluxo-de-execução) | Diagramas de cada solver |
@@ -103,6 +104,30 @@ flowchart TD
     K --> Q[("Relatório JSON + TXT")]
     P --> Q
 ```
+
+### 3.1 Por que os Auto Solvers e não pedir a resposta diretamente à IA?
+
+A vantagem não está na flag em si — está em **demonstrar e reproduzir o raciocínio técnico**.
+
+| Abordagem | Entrega | Demonstra |
+|-----------|---------|-----------|
+| Pedir a flag à IA | A string da flag | Nada do processo |
+| Executar o binário manualmente | Resultado no terminal | O fim, não o meio |
+| **Auto Solver (este projeto)** | **Ferramenta executável + relatório auditável** | **O pipeline completo de engenharia reversa** |
+
+**Extração real, não hardcode**
+
+`auto_solver_desafio1.py` lê `CrackMe0.dll` em disco e varre a stream `#US` via regex UTF-16LE. A flag pré-extraída (`FLAG_FALLBACK`) existe apenas como contingência offline — quando o binário está presente, a extração é feita no arquivo real.
+
+`auto_solver_desafio2.py` reconstrói matematicamente os 27 bytes do `ref_array` a partir dos quatro `MOVABS` identificados no disassembly e *deriva* a flag por XOR rotativo a cada execução. A flag não está hardcoded — ela é calculada.
+
+**Artefato auditável**
+
+Cada execução grava JSON e TXT com timestamp UTC, método aplicado e tamanho do binário. Qualquer avaliador pode reproduzir o processo apontando o script para o binário original e verificar os mesmos resultados.
+
+**Separação método / resultado**
+
+O pipeline em três etapas (parse de cabeçalho → dump de estrutura → extração) reflete o fluxo real de análise estática. Isso torna o código uma *evidência de competência técnica*, não um wrapper de resposta conhecida.
 
 ---
 
@@ -281,33 +306,48 @@ flowchart TD
 
 ### Configuração do ambiente
 
+**Primeira vez (clonou o repositório):**
+
 ```powershell
 # Na raiz do repositório
 cd GS_CAM_ASSEMBLY_AND_DEBUGGER
 
-# Criar ambiente virtual (pasta .venv — já listada no .gitignore)
+# Criar o ambiente virtual (pasta .venv — já listada no .gitignore)
 python -m venv .venv
+
+# Ativar o ambiente
 .venv\Scripts\Activate.ps1
 
-# Instalar dependências a partir do requirements.txt
+# Instalar dependências declaradas em requirements.txt
 pip install -r requirements.txt
 ```
 
-No Linux/macOS, use `source .venv/bin/activate` em vez de `Activate.ps1`.
+**Execuções subsequentes (ambiente já criado, como neste projeto):**
+
+```powershell
+# Apenas ativar o .venv existente antes de rodar os scripts
+.venv\Scripts\Activate.ps1
+```
+
+No Linux/macOS, substitua `Activate.ps1` por `source .venv/bin/activate`.
+
+> **Verificação:** após ativar, o prompt exibe `(.venv)` no início da linha. Use `pip list` para confirmar que `tqdm` e `colorama` estão instalados.
 
 ### Executando os solvers
+
+Com o `.venv` ativado:
 
 ```powershell
 # Desafio 1 — CrackMe0 (.NET)
 python auto_solver_desafio1.py
-# → Informe o diretório com CrackMe0.dll (ou ENTER para pasta padrão)
+# → Informe o diretório com CrackMe0.dll (ou pressione ENTER para usar a pasta do script)
 
 # Desafio 2 — CrackMe1 (ELF)
 python auto_solver_desafio2.py
-# → Informe o diretório com o binário 'desafio' (ou ENTER para pasta padrão)
+# → Informe o diretório com o binário 'desafio' (ou pressione ENTER para usar a pasta do script)
 ```
 
-> **Modo offline:** se o binário-alvo não for encontrado, ambos os solvers operam com a flag pré-extraída da análise estática.
+> **Modo offline:** se o binário-alvo não for encontrado no diretório informado, ambos os solvers operam com a flag pré-extraída da análise estática e geram o relatório normalmente.
 
 ### Dependências
 
