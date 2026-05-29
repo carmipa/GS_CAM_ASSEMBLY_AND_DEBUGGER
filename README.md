@@ -74,27 +74,27 @@ solucao_propria/
 
 ```mermaid
 flowchart TD
-    A([Binário Alvo]) --> B{Tipo de Binário?}
+    A(["Binário Alvo"]) --> B{"Tipo de Binário?"}
 
-    B -->|PE32+ com CLR Header| C[CrackMe0.dll\n.NET 6 WPF]
-    B -->|ELF 64-bit LSB| D[desafio\nLinux x86-64]
+    B -->|"PE32+ com CLR Header"| C["CrackMe0.dll<br/>.NET 6 WPF"]
+    B -->|"ELF 64-bit LSB"| D["desafio<br/>Linux x86-64"]
 
-    C --> E[auto_solver_desafio1.py]
-    D --> F[auto_solver_desafio2.py]
+    C --> E["auto_solver_desafio1.py"]
+    D --> F["auto_solver_desafio2.py"]
 
-    E --> G[Parse PE / CLR Header]
-    G --> H[Dump Streams de Metadata\n#~ · #US · #Strings · #GUID · #Blob]
-    H --> I[Varredura UTF-16LE\nna stream #US]
-    I --> J{Token 'FIAP\{' encontrado?}
-    J -->|Sim| K[Flag Extraída]
+    E --> G["Parse PE / CLR Header"]
+    G --> H["Dump streams de metadata<br/>US, Strings, GUID, Blob"]
+    H --> I["Varredura UTF-16LE<br/>User Strings"]
+    I --> J{"Token FIAP encontrado?"}
+    J -->|Sim| K["Flag extraída"]
 
-    F --> L[Parse ELF Header\ne_ident · e_shoff · seções]
-    L --> M[Disassembly .text\nverificar_usuario · verificar_chave]
-    M --> N[Extração do ref_array\n4x MOVABS na stack rbp-0x40]
-    N --> O[Quebra XOR rotativo\nchave 'FIAP' — i % 4]
-    O --> P[Flag Derivada]
+    F --> L["Parse ELF Header<br/>e_ident, e_shoff, seções"]
+    L --> M["Disassembly .text<br/>verificar_usuario, verificar_chave"]
+    M --> N["Extração ref_array<br/>4x MOVABS em rbp-0x40"]
+    N --> O["Quebra XOR rotativo<br/>chave FIAP, i mod 4"]
+    O --> P["Flag derivada"]
 
-    K --> Q[(Relatório JSON + TXT)]
+    K --> Q[("Relatório JSON + TXT")]
     P --> Q
 ```
 
@@ -128,20 +128,20 @@ CrackMe0.exe  (PE32+  bootstrap)
 sequenceDiagram
     participant S as Solver
     participant DLL as CrackMe0.dll
-    participant RE as Regex Engine
+    participant RE as Regex
 
-    S->>DLL: Leitura binária (rb)
+    S->>DLL: Leitura binária rb
     DLL-->>S: Bytes brutos do arquivo
 
-    S->>RE: re.findall(rb'(?:[\x20-\x7e]\x00){4,}', data)
-    RE-->>S: Candidatos UTF-16LE
+    S->>RE: findall padrão UTF-16LE ASCII
+    RE-->>S: Lista de candidatos
 
     loop Para cada candidato
-        S->>S: decode('utf-16-le')
-        S->>S: Verificar 'FIAP{', 'flag{', 'FLAG{'
+        S->>S: decode utf-16-le
+        S->>S: Filtrar prefixos FIAP flag FLAG
     end
 
-    S-->>S: FIAP{B3m_V1nd0_a0_R3v3rs1ng!}
+    S-->>S: Flag B3m_V1nd0_a0_R3v3rs1ng
 ```
 
 ### 4.3 Núcleo técnico — função `extract_flag_from_dotnet`
@@ -191,13 +191,9 @@ movabs rdx, 0x3c7e2069707a7f66  → bytes[19..26]
 
 ```mermaid
 flowchart LR
-    A[ref_array\n27 bytes na stack\nrbp-0x40] --> C{XOR}
-    B[Chave: 'FIAP'\ni % 4] --> C
-    C --> D[flag\nFIAP{5e9c3c9a6eb97d69319f7}]
-
-    style A fill:#1e3a5f,color:#ffffff
-    style B fill:#5f1e1e,color:#ffffff
-    style D fill:#1e5f1e,color:#ffffff
+    A["ref_array 27 bytes<br/>stack rbp-0x40"] --> C{XOR}
+    B["Chave FIAP<br/>índice i mod 4"] --> C
+    C --> D["flag derivada<br/>hex 5e9c3c9a6eb97d69319f7"]
 ```
 
 **Fórmula de reversão:**
@@ -215,42 +211,42 @@ O usuário aceito pelo binário (`"FIAP"`) é passado como argumento para a fun�
 
 ```mermaid
 flowchart TD
-    START([python auto_solver_desafio1.py]) --> BANNER[Exibe banner ASCII]
-    BANNER --> INPUT[Solicita diretório do binário]
-    INPUT --> CHECK{CrackMe0.dll\nexiste?}
+    START(["python auto_solver_desafio1.py"]) --> BANNER["Exibe banner ASCII"]
+    BANNER --> INPUT["Solicita diretório do binário"]
+    INPUT --> CHECK{"CrackMe0.dll existe?"}
 
-    CHECK -->|Sim| STEP1[Etapa 1: Parse PE + CLR Header]
-    CHECK -->|Não| FALLBACK[Modo offline\nflag pré-extraída]
+    CHECK -->|Sim| STEP1["Etapa 1: Parse PE + CLR Header"]
+    CHECK -->|Não| FALLBACK["Modo offline<br/>flag pré-extraída"]
 
-    STEP1 --> STEP2[Etapa 2: Dump streams\n#~ · #US · #Strings]
-    STEP2 --> STEP3[Etapa 3: Varredura UTF-16LE\nna stream #US]
-    STEP3 --> EXTRACT[extract_flag_from_dotnet]
+    STEP1 --> STEP2["Etapa 2: Dump streams<br/>US, Strings, metadata"]
+    STEP2 --> STEP3["Etapa 3: Varredura UTF-16LE"]
+    STEP3 --> EXTRACT["extract_flag_from_dotnet"]
     FALLBACK --> EXTRACT
 
-    EXTRACT --> RESULT[Flag: FIAP{B3m_V1nd0_a0_R3v3rs1ng!}]
-    RESULT --> REPORT[Gera JSON + TXT\nem solucao_crackme0/]
-    REPORT --> END([Fim])
+    EXTRACT --> RESULT["Flag CrackMe0 capturada"]
+    RESULT --> REPORT["Gera JSON + TXT<br/>solucao_crackme0/"]
+    REPORT --> END(["Fim"])
 ```
 
 ### Solver 2 — CrackMe1
 
 ```mermaid
 flowchart TD
-    START([python auto_solver_desafio2.py]) --> BANNER[Exibe banner ASCII]
-    BANNER --> INPUT[Solicita diretório do binário]
-    INPUT --> CHECK{desafio\nexiste?}
+    START(["python auto_solver_desafio2.py"]) --> BANNER["Exibe banner ASCII"]
+    BANNER --> INPUT["Solicita diretório do binário"]
+    INPUT --> CHECK{"binário desafio existe?"}
 
-    CHECK -->|Sim| STEP1[Etapa 1: Parse ELF Header\ne_ident · e_shoff · seções]
-    CHECK -->|Não| FALLBACK[Simulação de fallback\nflag pré-derivada]
+    CHECK -->|Sim| STEP1["Etapa 1: Parse ELF Header<br/>e_ident, e_shoff, seções"]
+    CHECK -->|Não| FALLBACK["Modo fallback<br/>flag pré-derivada"]
 
-    STEP1 --> STEP2[Etapa 2: Varredura de opcodes\nverificar_usuario · verificar_chave]
-    STEP2 --> STEP3[Etapa 3: Extração ref_array\n4x MOVABS na stack]
-    STEP3 --> XOR[Quebra XOR rotativo\nchave: FIAP — i % 4]
+    STEP1 --> STEP2["Etapa 2: Varredura opcodes<br/>verificar_usuario, verificar_chave"]
+    STEP2 --> STEP3["Etapa 3: Extração ref_array<br/>4x MOVABS na stack"]
+    STEP3 --> XOR["Quebra XOR rotativo<br/>chave FIAP, i mod 4"]
     FALLBACK --> XOR
 
-    XOR --> RESULT[Flag: FIAP{5e9c3c9a6eb97d69319f7}]
-    RESULT --> REPORT[Gera JSON + TXT\nem resolucao/]
-    REPORT --> END([Fim])
+    XOR --> RESULT["Flag CrackMe1 capturada"]
+    RESULT --> REPORT["Gera JSON + TXT<br/>solucao_crackme1/"]
+    REPORT --> END(["Fim"])
 ```
 
 ---
