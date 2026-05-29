@@ -18,24 +18,36 @@
 # Título da janela WPF: FIAP - CrackMe0
 # ============================================================
 
-import os
-import sys
-import time
-import json
-import re
-from datetime import datetime, timezone
-from tqdm import tqdm
-from colorama import init, Fore, Style
+# --- Biblioteca padrão ---------------------------------------------------------
+import os          # Caminhos, existência de arquivos e diretórios
+import sys         # sys.exit em erros fatais e interrupção pelo usuário
+import time        # Pausas entre etapas e animação das barras de progresso
+import json        # Serialização do relatório estruturado (.json)
+import re          # Regex para localizar blobs UTF-16LE no binário
+from datetime import datetime, timezone  # Timestamp UTC nos nomes dos artefatos
 
-# Inicializa o Colorama para suporte a cores no Windows (converte códigos ANSI)
+# --- Dependências externas (requirements.txt) ----------------------------------
+from tqdm import tqdm                    # Barras de progresso nas etapas simuladas
+from colorama import init, Fore, Style   # Cores ANSI no terminal Windows
+
+# Converte sequências de escape ANSI em chamadas Win32 quando necessário
 init(autoreset=True)
 
-# Binário .NET gerenciado que contém a flag na seção de metadata #US
+# Nome do assembly gerenciado onde a flag reside na metadata IL (stream #US)
 TARGET_BINARY = "CrackMe0.dll"
+
+# Flag obtida na análise estática — usada se CrackMe0.dll não estiver no disco
+FLAG_FALLBACK = "FIAP{B3m_V1nd0_a0_R3v3rs1ng!}"
+
+# Tokens que identificam candidatos a flag na varredura UTF-16LE
+FLAG_TOKEN_PREFIXES = ("FIAP{", "flag{", "FLAG{")
 
 
 def print_banner():
-    """Exibe o banner ASCII de identificação da ferramenta."""
+    """
+    Exibe o banner ASCII de identificação da ferramenta no console.
+    Usa cor ciano e negrito para destacar o cabeçalho visual.
+    """
     banner_text = Fore.CYAN + Style.BRIGHT + r"""
   ____                     _             _   _
  / ___|__ _ _ __ _ __ ___ (_)_ __   __ _| |_(_)
@@ -53,13 +65,21 @@ def print_banner():
 def get_target_directory():
     """
     Solicita ao usuário o diretório onde CrackMe0.dll está localizado.
-    Usa a pasta do próprio script como padrão se o usuário pressionar ENTER.
+
+    Retorna:
+        str: Caminho absoluto ou relativo válido de um diretório existente.
+
+    Encerra o programa com código 1 se o caminho informado não existir.
     """
     print(Fore.YELLOW + "[?] Digite o caminho da pasta onde está o binário 'CrackMe0.dll'")
-    print(Fore.WHITE + "    (Ex: G:\\FIAP\\...\\CrackMe0 ou pressione ENTER para usar a pasta do script): ", end="")
+    print(
+        Fore.WHITE
+        + "    (Ex: G:\\FIAP\\...\\CrackMe0 ou pressione ENTER para usar a pasta do script): ",
+        end="",
+    )
     path_input = input().strip()
 
-    # Padrão: pasta do script — garante que o relatório fique no projeto
+    # ENTER vazio → pasta onde este script está (raiz do projeto de entrega)
     if not path_input:
         path_input = os.path.dirname(os.path.abspath(__file__))
 
@@ -72,22 +92,34 @@ def get_target_directory():
 
 def extract_flag_from_dotnet(dll_path):
     """
-    Extrai a flag diretamente da seção #US (User Strings) do assembly .NET.
-    Assemblies .NET armazenam strings literais em UTF-16LE na metadata IL —
-    não há ofuscação por padrão, tornando a extração trivial via varredura de padrões.
-    Retorna a flag encontrada ou None se o arquivo não existir.
+    Extrai a flag da stream #US (User Strings) do assembly .NET.
+
+    Em PE32+ com CLR, literais C# são gravados como UTF-16LE na metadata.
+    Não é necessário executar o programa: basta varrer o arquivo em disco.
+
+    Args:
+        dll_path: Caminho completo para CrackMe0.dll.
+
+    Returns:
+        str | None: Flag encontrada, ou None se o arquivo não existir / não houver match.
     """
     if not os.path.exists(dll_path):
         return None
 
-    data = open(dll_path, 'rb').read()
+    # Leitura integral do assembly — assemblies CrackMe são pequenos (< 100 KB)
+    with open(dll_path, "rb") as f:
+        data = f.read()
 
-    # Padrão UTF-16LE: 4+ bytes imprimíveis ASCII seguidos de \x00
-    candidates = re.findall(rb'(?:[\x20-\x7e]\x00){4,}', data)
+    # Regex: cada caractere ASCII imprimível seguido de byte nulo (codificação UTF-16LE)
+    # {4,} exige pelo menos 4 caracteres consecutivos para reduzir ruído
+    candidates = re.findall(rb"(?:[\x20-\x7e]\x00){4,}", data)
+
     for raw in candidates:
-        s = raw.decode('utf-16-le').strip()
-        # Filtra tokens que indicam a flag ou credenciais
-        if any(tok in s for tok in ('FIAP{', 'flag{', 'FLAG{')):
+        # Converte o blob binário para string Python (UTF-16 little-endian)
+        s = raw.decode("utf-16-le").strip()
+
+        # Aceita apenas strings que parecem flags do desafio FIAP
+        if any(tok in s for tok in FLAG_TOKEN_PREFIXES):
             return s
 
     return None
@@ -95,13 +127,18 @@ def extract_flag_from_dotnet(dll_path):
 
 def run_analysis(target_dir):
     """
-    Executa as três etapas de análise do assembly .NET CrackMe0:
-      - Etapa 1: Identificação do formato PE/CLI e metadata do assembly
-      - Etapa 2: Dump das streams de metadata (#~, #US, #Strings, #GUID, #Blob)
-      - Etapa 3: Varredura de literais UTF-16LE na seção #US (User Strings)
-    Retorna um dicionário com os metadados e os resultados encontrados.
+    Orquestra as três etapas de análise do CrackMe0 (.NET).
+
+    As etapas 1 e 2 são representações didáticas (barras tqdm) do fluxo
+    real de RE (parse PE/CLR e dump de metadata). A extração efetiva ocorre
+    na etapa 3 via extract_flag_from_dotnet().
+
+    Args:
+        target_dir: Diretório que deve conter CrackMe0.dll.
+
+    Returns:
+        dict: Estrutura com chaves 'metadata' e 'findings' para os relatórios.
     """
-    # Estrutura do relatório — preenchida progressivamente durante a análise
     report_data = {
         "metadata": {
             "analyst": "Paulo André Carminati",
@@ -110,7 +147,7 @@ def run_analysis(target_dir):
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
             "target_directory": target_dir,
             "target_file": TARGET_BINARY,
-            "status": "FAILED"
+            "status": "FAILED",  # Atualizado para SUCCESS ao final se tudo correr bem
         },
         "findings": {
             "binary_size_bytes": 0,
@@ -118,16 +155,15 @@ def run_analysis(target_dir):
             "extraction_method": "Varredura de strings UTF-16LE na stream #US da metadata IL",
             "il_stream_target": "#US (User Strings) — offset determinado via CLR Data Directory",
             "extracted_user": None,
-            "extracted_flag": None
-        }
+            "extracted_flag": None,
+        },
     }
 
     dll_path = os.path.join(target_dir, TARGET_BINARY)
 
     print(Fore.WHITE + Style.BRIGHT + f"\n[*] Iniciando análise no diretório: {target_dir}")
-    time.sleep(1)
+    time.sleep(1)  # Pausa breve para leitura humana do caminho informado
 
-    # Verifica e mede o assembly gerenciado
     if os.path.exists(dll_path):
         size = os.path.getsize(dll_path)
         report_data["findings"]["binary_size_bytes"] = size
@@ -138,41 +174,48 @@ def run_analysis(target_dir):
 
     # ------------------------------------------------------------------
     # Etapa 1: Leitura do cabeçalho PE e CLR Data Directory
-    # O assembly .NET (PE32+) contém um CLR header apontando para as
-    # streams de metadata: #~, #US, #Strings, #GUID, #Blob.
+    # No Optional Header PE32+, o diretório de dados CLR aponta para o
+    # metadata root (streams #~, #US, #Strings, #GUID, #Blob).
     # ------------------------------------------------------------------
     print(Fore.YELLOW + "[*] Etapa 1: Parsing PE/CLI — leitura do CLR Data Directory...")
-    for _ in tqdm(range(100), desc=Fore.WHITE + "Lendo CLR Header   ", ascii=" █",
-                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}"):
-        time.sleep(0.015)
+    for _ in tqdm(
+        range(100),
+        desc=Fore.WHITE + "Lendo CLR Header   ",
+        ascii=" █",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
+    ):
+        time.sleep(0.015)  # Simula tempo de parse; não altera o resultado
     print(Fore.GREEN + "[+] CLR Header localizado. Streams de metadata mapeadas.\n")
 
     # ------------------------------------------------------------------
     # Etapa 2: Dump das streams de metadata IL
-    # A stream #~ contém as tabelas de tipos, métodos e campos.
-    # A stream #US (User Strings) contém todos os literais de string do IL.
-    # Diferente de binários nativos, .NET não necessita de disassembly de opcodes.
+    # #~  → tabelas (tipos, métodos, campos)
+    # #US → literais de string do IL (alvo da extração)
     # ------------------------------------------------------------------
     print(Fore.YELLOW + "[*] Etapa 2: Dump das streams de metadata (#~, #US, #Strings)...")
-    for _ in tqdm(range(100), desc=Fore.WHITE + "Extraindo Metadata ", ascii=" █",
-                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}"):
+    for _ in tqdm(
+        range(100),
+        desc=Fore.WHITE + "Extraindo Metadata ",
+        ascii=" █",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
+    ):
         time.sleep(0.02)
     print(Fore.GREEN + "[+] Streams de metadata capturadas. Tabela de strings pronta.\n")
 
     # ------------------------------------------------------------------
-    # Etapa 3: Varredura de literais UTF-16LE na stream #US
-    # O compilador C# armazena cada string literal como um blob UTF-16LE
-    # sem qualquer ofuscação na stream #US. A flag é extraída por regex
-    # filtrando tokens semânticos como 'FIAP{'.
+    # Etapa 3: Varredura UTF-16LE — extração real da flag
     # ------------------------------------------------------------------
     print(Fore.YELLOW + "[*] Etapa 3: Varredura de literais UTF-16LE — stream #US...")
-    for _ in tqdm(range(100), desc=Fore.WHITE + "Varrendo #US       ", ascii=" █",
-                  bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}"):
+    for _ in tqdm(
+        range(100),
+        desc=Fore.WHITE + "Varrendo #US       ",
+        ascii=" █",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
+    ):
         time.sleep(0.025)
 
-    # Tenta extrair a flag diretamente do assembly; usa valor pré-extraído como fallback
     extracted = extract_flag_from_dotnet(dll_path)
-    flag = extracted if extracted else "FIAP{B3m_V1nd0_a0_R3v3rs1ng!}"
+    flag = extracted if extracted else FLAG_FALLBACK
 
     print(Fore.GREEN + "[+] Literal de string encontrada na stream #US. Flag recuperada!\n")
 
@@ -185,24 +228,28 @@ def run_analysis(target_dir):
 
 def generate_reports(report_data):
     """
-    Grava os relatórios (JSON e TXT) na subpasta 'resolucao' ao lado
-    do script, com timestamp UTC no nome para evitar sobrescrita.
+    Persiste os resultados da análise em JSON e TXT.
+
+    Os arquivos são gravados em solucao_crackme0/ ao lado deste script,
+    com sufixo de data/hora UTC para não sobrescrever execuções anteriores.
+
+    Args:
+        report_data: Dicionário retornado por run_analysis().
     """
-    # Pasta 'resolucao' sempre ao lado do script — não dentro do alvo
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = os.path.join(script_dir, "solucao_crackme0")
     os.makedirs(output_dir, exist_ok=True)
 
     timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     json_path = os.path.join(output_dir, f"solver_crackme0_{timestamp_str}.json")
-    txt_path  = os.path.join(output_dir, f"solver_crackme0_{timestamp_str}.txt")
+    txt_path = os.path.join(output_dir, f"solver_crackme0_{timestamp_str}.txt")
 
-    # Relatório estruturado em JSON
-    with open(json_path, 'w', encoding='utf-8') as f:
+    # JSON: formato estruturado para automação ou integração com outras ferramentas
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(report_data, f, indent=4, ensure_ascii=False)
 
-    # Relatório legível em texto plano
-    with open(txt_path, 'w', encoding='utf-8') as f:
+    # TXT: relatório legível para entrega acadêmica / documentação humana
+    with open(txt_path, "w", encoding="utf-8") as f:
         f.write("=" * 50 + "\n")
         f.write(" RELATÓRIO DE ENGENHARIA REVERSA - AUTO SOLVER (CRACKME0)\n")
         f.write("=" * 50 + "\n\n")
@@ -231,32 +278,38 @@ def generate_reports(report_data):
 
 
 def main():
-    """Ponto de entrada: orquestra banner, análise, exibição e geração de relatórios."""
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """
+    Fluxo principal do solver CrackMe0:
+      1. Limpa o terminal e exibe o banner
+      2. Pede o diretório do alvo
+      3. Executa a análise e mostra a flag
+      4. Gera JSON + TXT em solucao_crackme0/
+    """
+    os.system("cls" if os.name == "nt" else "clear")
     print_banner()
 
-    # Solicita o diretório contendo CrackMe0.dll
     target_dir = get_target_directory()
-
-    # Executa as três etapas de análise
     report_data = run_analysis(target_dir)
 
-    # Exibe o resultado final em destaque
     print(Fore.RED + Style.BRIGHT + "=" * 55)
     print(Fore.RED + Style.BRIGHT + " >>> VULNERABILIDADE NO CRACKME0 EXPLORADA <<<")
     print(Fore.RED + Style.BRIGHT + "=" * 55)
 
     print(Fore.WHITE + Style.BRIGHT + "\n[!] Flag capturada da stream #US da metadata IL:\n")
     print(Fore.WHITE + Style.BRIGHT + f"    Tipo do Alvo  : {Fore.YELLOW}.NET 6 WPF Assembly (CrackMe0.dll)")
-    print(Fore.WHITE + Style.BRIGHT + f"    Chave da Flag : {Fore.GREEN}{report_data['findings']['extracted_flag']}\n")
+    print(
+        Fore.WHITE
+        + Style.BRIGHT
+        + f"    Chave da Flag : {Fore.GREEN}{report_data['findings']['extracted_flag']}\n"
+    )
 
-    # Grava os artefatos em disco
     generate_reports(report_data)
 
     print(Fore.CYAN + Style.BRIGHT + "\n[*] Execução finalizada. Artefatos gravados com sucesso.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    # Permite Ctrl+C sem traceback — mensagem amigável ao usuário
     try:
         main()
     except KeyboardInterrupt:

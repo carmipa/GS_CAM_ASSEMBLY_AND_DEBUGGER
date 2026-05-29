@@ -53,15 +53,21 @@ O Global Solution 1 avalia a capacidade de aplicar **engenharia reversa** a dois
 ## 2. Estrutura do Projeto
 
 ```
-solucao_propria/
+GS_CAM_ASSEMBLY_AND_DEBUGGER/
 │
+├── .venv/                      ← Ambiente virtual Python (não versionado)
+├── requirements.txt            ← Dependências pip (tqdm, colorama)
 ├── auto_solver_desafio1.py     ← Solver do CrackMe0 (.NET)
 ├── auto_solver_desafio2.py     ← Solver do CrackMe1 (ELF/XOR)
-├── readme.md                   ← Esta documentação
+├── README.md                   ← Esta documentação
 │
-└── solucao_crackme0/           ← Artefatos gerados pelo Solver 1
-    ├── solver_crackme0_<UTC>.json
-    └── solver_crackme0_<UTC>.txt
+├── solucao_crackme0/           ← Artefatos gerados pelo Solver 1
+│   ├── solver_crackme0_<UTC>.json
+│   └── solver_crackme0_<UTC>.txt
+│
+└── solucao_crackme1/           ← Artefatos gerados pelo Solver 2
+    ├── solver_report_utc_<UTC>.json
+    └── solver_report_utc_<UTC>.txt
 ```
 
 [![Python](https://img.shields.io/badge/auto__solver__desafio1.py-.NET_Assembly_Analysis-3776AB?style=flat-square&logo=python)]()
@@ -276,13 +282,18 @@ flowchart TD
 ### Configuração do ambiente
 
 ```powershell
-# Criar ambiente virtual
+# Na raiz do repositório
+cd GS_CAM_ASSEMBLY_AND_DEBUGGER
+
+# Criar ambiente virtual (pasta .venv — já listada no .gitignore)
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 
-# Instalar dependências
-pip install tqdm colorama
+# Instalar dependências a partir do requirements.txt
+pip install -r requirements.txt
 ```
+
+No Linux/macOS, use `source .venv/bin/activate` em vez de `Activate.ps1`.
 
 ### Executando os solvers
 
@@ -300,10 +311,12 @@ python auto_solver_desafio2.py
 
 ### Dependências
 
+Declaradas em [`requirements.txt`](requirements.txt):
+
 | Pacote | Versão | Finalidade |
 |--------|--------|------------|
-| `tqdm` | ≥ 4.0 | Barras de progresso visuais nas etapas |
-| `colorama` | ≥ 0.4 | Cores ANSI no terminal Windows |
+| `tqdm` | ≥ 4.66 | Barras de progresso visuais nas etapas |
+| `colorama` | ≥ 0.4.6 | Cores ANSI no terminal Windows |
 | `os`, `re`, `json`, `datetime` | stdlib | I/O, regex, serialização, timestamps |
 
 ---

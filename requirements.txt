@@ -1,0 +1,4 @@
+# Dependências dos solvers auto_solver_desafio1.py e auto_solver_desafio2.py
+# Python 3.11+
+colorama>=0.4.6
+tqdm>=4.66.0
